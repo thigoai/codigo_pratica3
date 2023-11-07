@@ -1,0 +1,80 @@
+// Código para Arduino 2 (Escravo)
+#include <SoftwareSerial.h>
+
+SoftwareSerial ArduinoMaster(10, 11);  // RX, TX
+
+const int ledPin = 9;    // o número do pino do LED
+String msg = "";         // variável para armazenar a mensagem do mestre
+int ldrValue = 0;        // valor do sensor de luminosidade
+int buttonState = 0;     // estado do botão
+int oldLdrVal = 0;       // valor anterior do sensor de luminosidade
+int oldButtonState = 0;  // estado anterior do botão
+
+void setup() {
+  Serial.begin(9600);
+  ArduinoMaster.begin(9600);     // inicia a comunicação serial
+  pinMode(ledPin, OUTPUT);  // configura o pino do LED como saída
+}
+
+void loop() {
+  readMasterPort();   // lê a porta serial do mestre
+  convertMsgToCmd();  // converte a mensagem em comandos
+
+  if (oldLdrVal != ldrValue || oldButtonState != buttonState) {
+    Serial.print("Master sent: ");
+    Serial.print(ldrValue);
+    Serial.print(", ");
+    Serial.println(buttonState);
+
+    if (buttonState == HIGH) {
+      digitalWrite(ledPin, HIGH);  // se o botão estiver pressionado, acende o LED em alta intensidade
+    } else {
+      int ledVal = map(ldrValue, 0, 1023, 0, 255);  // mapeia o valor do sensor de luminosidade para um valor de PWM
+      analogWrite(ledPin, ledVal);                  // ajusta a intensidade da luz com base no valor do sensor de luminosidade
+
+      Serial.print("LED value: ");
+      Serial.println(ledVal);
+
+      ArduinoMaster.print(ledVal);  // envia o valor do LED para o mestre
+    }
+
+    oldLdrVal = ldrValue;
+    oldButtonState = buttonState;
+  }
+
+  if (ldrValue < 20) {
+    ArduinoMaster.println("Baixa luminosidade!");  // se a luminosidade for baixa, imprime uma mensagem na tela
+  }
+}
+
+void readMasterPort() {
+  while (ArduinoMaster.available()) {
+    delay(10);
+    if (ArduinoMaster.available() > 0) {
+      char c = ArduinoMaster.read();
+      msg += c;
+    }
+  }
+  ArduinoMaster.flush();  // limpa os dados da porta serial
+}
+
+void convertMsgToCmd() {
+  if (msg.length() > 0) {
+    Serial.print("Message length: ");
+    Serial.println(msg.length());
+
+    int hashIndex = msg.indexOf('#');
+    String ldrValueStr = msg.substring(0, hashIndex);      // extrai a string do valor do sensor de luminosidade da mensagem
+    String buttonStateStr = msg.substring(hashIndex + 1);  // extrai a string do estado do botão da mensagem
+
+    char carray1[6];
+    ldrValueStr.toCharArray(carray1, sizeof(carray1));
+    ldrValue = atoi(carray1);
+
+    char carray2[2];
+    buttonStateStr.toCharArray(carray2, sizeof(carray2));
+    buttonState = atoi(carray2);
+
+    msg = "";
+  }
+}

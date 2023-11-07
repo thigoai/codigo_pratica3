@@ -1,0 +1,57 @@
+// Código para Arduino 1 (Mestre)
+#include <SoftwareSerial.h>
+
+SoftwareSerial ArduinoSlave(10, 11); // RX, TX
+
+const int buttonPin = 2;     // o número do pino do botão
+const int ldrPin = A0;       // o número do pino do sensor de luminosidade (LDR)
+
+String answer = "";          // variável para armazenar a resposta do escravo
+int oldLdrVal = 0;           // valor anterior do sensor de luminosidade
+int oldButtonState = 0;      // estado anterior do botão
+
+void setup() {
+  Serial.begin(9600);
+  ArduinoSlave.begin(9600);      // inicia a comunicação serial
+  pinMode(buttonPin, INPUT); // configura o pino do botão como entrada
+  Serial.println("ENTER Commands");
+}
+
+void loop() {
+  int ldrValue = analogRead(ldrPin);      // lê o valor do sensor de luminosidade
+  int buttonState = digitalRead(buttonPin); // lê o estado do botão
+
+  readSlavePort();            // lê a porta serial do escravo
+
+  if (oldLdrVal != ldrValue || oldButtonState != buttonState) {
+    ArduinoSlave.print(ldrValue);   // envia o valor do sensor de luminosidade via Serial
+    ArduinoSlave.print("#");
+    ArduinoSlave.println(buttonState); // envia o estado do botão via Serial
+
+    Serial.print("Master sent: ");
+    Serial.print(ldrValue);
+    Serial.print(", ");
+    Serial.println(buttonState);
+
+    oldLdrVal = ldrValue;
+    oldButtonState = buttonState;
+  }
+
+  if (answer != "") {
+    Serial.print("Slave LED PWM value: ");
+    Serial.println(answer);
+    answer = "";
+  }
+
+  delay(1000); // espera um pouco para a próxima leitura
+}
+
+void readSlavePort() {
+  while (ArduinoSlave.available()) {
+    delay(10);
+    if (ArduinoSlave.available() > 0) {
+      char c = ArduinoSlave.read();
+      answer += c;
+    }
+  }
+}
